@@ -5,20 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GK கேள்விகள் — 150 கேள்விகள்</title>
     <style>
+        /* New CSS for Background Image Rotation */
         body {
             font-family: Arial, sans-serif;
-            background: linear-gradient(to right, #FFDEE9, #B5FFFC);
             margin: 0;
             padding: 0;
+            background-size: cover; /* Cover the entire viewport */
+            background-position: center; /* Center the image */
+            transition: background-image 1s ease-in-out; /* Smooth transition for background change */
+            min-height: 100vh; /* Ensure full viewport height */
+            display: flex; /* For centering content if needed, but here just for full screen */
+            flex-direction: column;
+            align-items: center;
         }
 
+        /* Existing CSS for container with some adjustments */
         .container {
             max-width: 800px;
             margin: 30px auto;
-            background: #fff;
+            background: rgba(255, 255, 255, 0.9); /* Semi-transparent white background */
             padding: 20px;
             border-radius: 10px;
-            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 0 25px rgba(0, 0, 0, 0.5); /* Enhanced shadow */
+            backdrop-filter: blur(5px); /* Optional: blur the background image behind the container */
+            width: 90%;
         }
 
         h1 {
@@ -27,45 +37,80 @@
         }
 
         #question {
-            font-size: 20px;
+            font-size: 22px; /* Slightly larger font */
             margin-bottom: 15px;
-            color: #111;
-            min-height: 50px; /* Ensure space for question text */
+            color: #000;
+            min-height: 50px;
+            font-weight: bold; /* Make the question stand out */
         }
 
         .options button {
             display: block;
             width: 100%;
-            margin: 8px 0;
-            padding: 10px;
-            font-size: 16px;
-            border: none;
-            border-radius: 6px;
+            margin: 10px 0; /* Increased margin */
+            padding: 12px; /* Increased padding */
+            font-size: 17px; /* Slightly larger font */
+            border: 2px solid #5d5c61; /* Added border */
+            border-radius: 8px; /* Slightly more rounded */
             cursor: pointer;
             background: #f0f0f0;
             transition: 0.3s;
         }
 
-        .options button:hover {
+        .options button:hover:not(:disabled) { /* Hover effect for enabled buttons */
             background: #8ec5fc;
             color: #fff;
+            transform: translateY(-2px); /* Slight lift on hover */
         }
+        
+        /* Highlight the selected wrong answer with a red background */
+        .options button.wrong-answer {
+             background-color: #ff6347 !important; /* Tomato Red */
+             color: white;
+             border: 2px solid #a52a2a;
+        }
+
+        /* Highlight the correct answer with a green background */
+        .options button.correct-answer-highlight {
+             background-color: #3cb371 !important; /* Medium Sea Green */
+             color: white;
+             border: 2px solid #006400;
+        }
+
 
         #scoreBox {
             font-weight: bold;
-            margin-top: 15px;
+            margin-top: 20px;
             text-align: center;
+            font-size: 1.2em; /* Larger score text */
+            color: #4CAF50; /* Green color for score */
         }
         
         #levelDisplay {
             color: #d32f2f;
-            font-size: 1.1em;
-            margin-bottom: 5px;
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        /* Style for Mute/Replay buttons */
+        #muteBtn, #replayBtn {
+            margin: 10px 5px;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: #5d5c61;
+            color: white;
+        }
+
+        #muteBtn:hover, #replayBtn:hover {
+            background-color: #3f3e42;
         }
     </style>
 </head>
 <body>
-    <button id="muteBtn">🔇 Mute</button>
+    <button id="muteBtn">🔊 Mute</button>
     <button id="replayBtn">🔄 Replay</button>
 
     <div class="container">
@@ -86,6 +131,10 @@
 
     <audio id="wrongSfx">
         <source src="https://www.soundjay.com/buttons/sounds/button-16.mp3" type="audio/mpeg">
+    </audio>
+
+    <audio id="timeoutSfx">
+        <source src="https://www.soundjay.com/misc/sounds/bell-ring-03.mp3" type="audio/mpeg">
     </audio>
 
     <script>
@@ -263,6 +312,16 @@
         ]; // Total 150 Questions
 
         const QUESTIONS_PER_LEVEL = 10;
+        
+        // Image URLs for rotating background (Using placeholder images)
+        const backgroundImages = [
+            'https://picsum.photos/800/600?random=1', // Placeholder for Nature
+            'https://picsum.photos/800/600?random=2', // Placeholder for Culture
+            'https://picsum.photos/800/600?random=3', // Placeholder for Science
+            'https://picsum.photos/800/600?random=4', // Placeholder for History
+            'https://picsum.photos/800/600?random=5' // Placeholder for Space
+        ];
+        let currentImageIndex = 0;
 
         let shuffledQuestionBank = [];
         let currentQuestionIndex = 0;
@@ -270,7 +329,8 @@
         let timer;
         let timeLeft = 10;
 
-        // --- Shuffle Function (Fisher-Yates) ---
+        // --- Utility Functions ---
+
         function shuffleArray(array) {
             for (let i = array.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
@@ -278,11 +338,18 @@
             }
         }
 
+        // --- New Function: Change Background Image ---
+        function changeBackgroundImage() {
+            document.body.style.backgroundImage = `url('${backgroundImages[currentImageIndex]}')`;
+            currentImageIndex = (currentImageIndex + 1) % backgroundImages.length; // Cycle through images
+        }
+
         // --- Core Quiz Logic ---
 
         function updateScoreDisplay() {
-            const currentLevel = Math.floor(currentQuestionIndex / QUESTIONS_PER_LEVEL) + 1;
-            const totalLevels = Math.ceil(originalQuestionBank.length / QUESTIONS_PER_LEVEL);
+            const totalQuestions = originalQuestionBank.length;
+            const totalLevels = Math.ceil(totalQuestions / QUESTIONS_PER_LEVEL);
+            const currentLevel = Math.min(Math.floor(currentQuestionIndex / QUESTIONS_PER_LEVEL) + 1, totalLevels);
             
             document.getElementById("score").innerText = score;
             document.getElementById("timerDisplay").innerText = timeLeft;
@@ -293,24 +360,23 @@
             if (currentQuestionIndex < shuffledQuestionBank.length) {
                 const qData = shuffledQuestionBank[currentQuestionIndex];
                 
-                // Calculate question number within the level
-                const qNumberInLevel = (currentQuestionIndex % QUESTIONS_PER_LEVEL) + 1;
+                // Change background image on every new question or level start
+                changeBackgroundImage();
+                
+                // Calculate question number within the quiz (Global number)
+                const qNumber = currentQuestionIndex + 1;
 
-                document.getElementById("question").innerHTML = `கேள்வி ${qNumberInLevel}: **${qData.q}**`;
+                document.getElementById("question").innerHTML = `கேள்வி ${qNumber}: **${qData.q}**`;
                 const opts = document.getElementById("options");
                 opts.innerHTML = "";
 
-                // Prepare options for button creation
                 let optionsWithIndex = qData.options.map((opt, index) => ({ opt, index }));
-
-                // Shuffle the options' display order
                 shuffleArray(optionsWithIndex);
 
                 optionsWithIndex.forEach((item) => {
                     let btn = document.createElement("button");
                     btn.innerText = item.opt;
-                    // Pass the option's original index (item.index) and the correct answer index (qData.answer) to checkAnswer
-                    btn.onclick = () => checkAnswer(item.index, qData.answer);
+                    btn.onclick = () => checkAnswer(btn, item.index, qData.answer); // Pass button reference
                     opts.appendChild(btn);
                 });
 
@@ -330,45 +396,62 @@
                 timeLeft--;
                 document.getElementById("timerDisplay").innerText = timeLeft;
 
+                if (timeLeft === 3) {
+                    // Optional: Add a visual warning for low time
+                    document.getElementById("timerDisplay").style.color = 'red'; 
+                } else if (timeLeft > 3) {
+                     document.getElementById("timerDisplay").style.color = ''; 
+                }
+
                 if (timeLeft <= 0) {
                     clearInterval(timer);
+                    document.getElementById("timeoutSfx").play(); // Play timeout tune
                     endGame("⏱️ நேரம் முடிந்தது! விளையாட்டு முடிந்துவிட்டது. இறுதி மதிப்பெண்: " + score);
                 }
             }, 1000);
         }
 
-        function checkAnswer(selectedOriginalIndex, correctOriginalIndex) {
+        function checkAnswer(selectedButton, selectedOriginalIndex, correctOriginalIndex) {
             clearInterval(timer);
-            // Lock buttons after selection
-            Array.from(document.getElementById("options").children).forEach(btn => btn.disabled = true);
+            document.getElementById("timerDisplay").style.color = ''; // Reset timer color
+
+            // Lock all buttons after selection
+            const allButtons = Array.from(document.getElementById("options").children);
+            allButtons.forEach(btn => btn.disabled = true);
+
+            const correctOptionText = shuffledQuestionBank[currentQuestionIndex].options[correctOriginalIndex];
+            const correctButton = allButtons.find(btn => btn.innerText === correctOptionText);
+
 
             if (selectedOriginalIndex === correctOriginalIndex) {
+                // Correct Answer
                 score++;
+                document.getElementById("correctSfx").currentTime = 0; // Rewind to play again
                 document.getElementById("correctSfx").play();
                 updateScoreDisplay();
+                selectedButton.style.backgroundColor = '#90EE90'; // Light Green
+                selectedButton.classList.add('correct-answer-highlight'); // Use class for persistent styling
 
-                // Check for level completion (optional, since the prompt only asked for division, keeping the game flow simple)
-                if ((currentQuestionIndex + 1) % QUESTIONS_PER_LEVEL === 0 && (currentQuestionIndex + 1) < shuffledQuestionBank.length) {
-                    // This block is for signaling a level up, though the game continues
-                    document.getElementById("question").innerHTML = "✅ சரியான பதில்! அடுத்த நிலை செல்கிறது... ⬆️";
-                }
+                document.getElementById("question").innerHTML = "✅ சரியான பதில்! அடுத்த கேள்விக்கு செல்கிறது...";
                 
                 currentQuestionIndex++;
-                setTimeout(renderQuestion, 700); // 0.7s delay
+                setTimeout(renderQuestion, 1000); // 1s delay
             } else {
+                // Wrong Answer (Game Over)
+                document.getElementById("wrongSfx").currentTime = 0; // Rewind to play again
                 document.getElementById("wrongSfx").play();
+
+                // Highlight wrong answer red
+                selectedButton.classList.add('wrong-answer');
                 
-                // Highlight the correct answer
-                const correctOptionText = shuffledQuestionBank[currentQuestionIndex].options[correctOriginalIndex];
-                Array.from(document.getElementById("options").children).forEach(btn => {
-                    if (btn.innerText === correctOptionText) {
-                        btn.style.backgroundColor = '#90EE90'; // Light Green
-                    }
-                });
+                // Highlight the correct answer green
+                if (correctButton) {
+                   correctButton.classList.add('correct-answer-highlight');
+                }
                 
                 setTimeout(() => {
                     endGame("❌ தவறான பதில்! விளையாட்டு முடிந்துவிட்டது. இறுதி மதிப்பெண்: " + score);
-                }, 1500); // Wait longer to show the correct answer
+                }, 1500); // Wait longer to show the correct answer and game over message
             }
         }
 
@@ -392,23 +475,42 @@
         }
 
         const bgMusic = document.getElementById("bgMusic");
+        const muteBtn = document.getElementById("muteBtn");
 
-        document.getElementById("muteBtn").onclick = () => {
-            if (bgMusic.paused) {
+        muteBtn.onclick = () => {
+            const isMuted = bgMusic.paused;
+            if (isMuted) {
+                // Attempt to play background music and the other sound effects
                 bgMusic.play().catch(e => console.log("Music play failed:", e));
-                document.getElementById("muteBtn").innerText = "🔊 Unmute";
+                document.getElementById("correctSfx").muted = false;
+                document.getElementById("wrongSfx").muted = false;
+                document.getElementById("timeoutSfx").muted = false;
+                muteBtn.innerText = "🔊 Mute";
             } else {
+                // Pause background music and mute the others
                 bgMusic.pause();
-                document.getElementById("muteBtn").innerText = "🔇 Mute";
+                document.getElementById("correctSfx").muted = true;
+                document.getElementById("wrongSfx").muted = true;
+                document.getElementById("timeoutSfx").muted = true;
+                muteBtn.innerText = "🔇 Unmute";
             }
         };
+
 
         document.getElementById("replayBtn").onclick = () => {
             initializeQuiz(); // Replay shuffles and restarts
         };
 
         window.onload = () => {
-            bgMusic.play().catch(e => console.log("Music auto-play prevented. User interaction required."));
+            // Initial attempt to play music (might require user interaction)
+            bgMusic.play().catch(e => {
+                console.log("Music auto-play prevented. User interaction required.");
+                // Update button text to reflect the actual state (paused)
+                muteBtn.innerText = "🔇 Unmute"; 
+            }); 
+            
+            // Set initial image (first load)
+            changeBackgroundImage(); 
             initializeQuiz();
         };
     </script>
